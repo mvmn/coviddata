@@ -2,3 +2,14 @@ Map_of_Ukraine_Oblasts_DEMO.svg
 data_rnbo.json
 jhu/
 rnbo/
+
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
