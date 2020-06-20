@@ -12,7 +12,7 @@ dateFormatJhu = new java.text.SimpleDateFormat("MM-dd-yyyy");
 
 safe = { call, maxlines -> try{ call() }catch(Exception ex) { System.err.println(ex.getClass().canonicalName+": "+ex.message+"\n  "+ex.stackTrace.toList().subList(0, Math.min(maxlines, ex.stackTrace.size())).join("\n  ")) }};
 
-folder = new File("/Users/mvmn/tmp/coviddata/")
+folder = new File("."); // new File("/Users/mvmn/tmp/coviddata/");
 folderRnbo = new File(folder, "rnbo");
 if(!folderRnbo.exists()) { folderRnbo.mkdir(); }
 folderJhu = new File(folder, "jhu");
