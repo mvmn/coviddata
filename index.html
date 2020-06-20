@@ -1,0 +1,499 @@
+<html>
+<head>
+	<script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.js'></script>
+	<style>
+		#svg {
+			float: right;
+		}
+		#oblCountsContainer {
+			float: left;
+			font-size: 80%;
+		}
+		body {
+			font-family: Sans-Serif;
+		}
+		#oblCountsDate {
+			font-size: 110%;
+			font-weight: bold;
+		}
+		#chart {
+			clear: both;
+		}
+		#myChart {
+			width: 100% !important;
+			height: 780px !important;
+		}
+	</style>
+</head>
+<body>
+	<div id="main">
+		<object id="svg" data="./Map_of_Ukraine_Oblasts_DEMO.svg" type="image/svg+xml"></object>
+		<div id="oblCountsContainer">
+			<select id="dataFieldSelector">
+				<option value="existing">Активні зараз</option>
+				<option value="recovered">Видужання</option>
+				<option value="deaths">Смерті</option>
+				<option value="suspicions">Підозри</option>
+				<option value="confirmed">Підтверджені за весь час</option>
+				<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
+				<option value="delta_existing">&Delta; Активні зараз</option>
+				<option value="delta_recovered">&Delta; Видужання</option>
+				<option value="delta_deaths">&Delta; Смерті</option>
+				<option value="delta_suspicions">&Delta; Підозри</option>
+				<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
+			</select>
+			<input type="button" onclick="javascript:animateDataRnbo()" value="Animate" />
+			<div>
+				<select id="animateDate" onchange="javascript:heatmapDataRnboForSingleDay()"></select>
+				<input type="button" value="<" onclick="animateDateShift(-1)" />
+				<input type="button" value=">" onclick="animateDateShift(1)" />
+				Per capita
+				<input id="perCapitaAnimationCheckbox" type="checkbox" onchange="javascript:heatmapDataRnboForSingleDay()" />
+			</div>
+			<div id="oblCountsMaxValue"></div>
+			<div id="oblCounts"></div>
+		</div>
+		<div id="chart">
+			<div>
+				<select id="chartPropSelect" onchange="javascript:drawChart()">
+					<option value="existing">Активні зараз</option>
+					<option value="recovered">Видужання</option>
+					<option value="deaths">Смерті</option>
+					<option value="suspicions">Підозри</option>
+					<option value="confirmed">Підтверджені за весь час</option>
+					<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
+					<option value="delta_existing">&Delta; Активні зараз</option>
+					<option value="delta_recovered">&Delta; Видужання</option>
+					<option value="delta_deaths">&Delta; Смерті</option>
+					<option value="delta_suspicions">&Delta; Підозри</option>
+					<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
+				</select>
+				<select id="chartDateStart" onchange="javascript:drawChart()">
+				</select>
+				<select id="chartDateEnd" onchange="javascript:drawChart()">
+				</select>
+				Тип діаграми
+				<select id="chartTypeSelect" onchange="javascript:drawChart()">
+					<option value="lineSmoothed">Лінійна із згладжуванням ліній</option>
+					<option value="line">Лінійна</option>
+					<option value="stackedBar">Стовпчикова збірна</option>
+					<option value="bar">Стовпчикова</option>
+				</select>
+				Середнє за 7 днів
+				<input id="avgBySevenDays" type="checkbox" onchange="javascript:drawChart()" />
+				Per capita
+				<input id="perCapitaCheckbox" type="checkbox" onchange="javascript:drawChart()" />
+			</div>
+			<div><canvas id="myChart" width="800" height="780"></canvas></div>
+		</div>
+	</div>
+	<script>
+		function hslToRgb(h, s, l) {
+			h /= 360;
+			s /= 100;
+			l /= 100;
+			var r, g, b;
+			if (s === 0) {
+				r = g = b = l; // achromatic
+			} else {
+				var hue2rgb = function(p, q, t) {
+					if (t < 0) t += 1;
+					if (t > 1) t -= 1;
+					if (t < 1 / 6) return p + (q - p) * 6 * t;
+					if (t < 1 / 2) return q;
+					if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+					return p;
+				};
+				var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+				var p = 2 * l - q;
+				r = hue2rgb(p, q, h + 1 / 3);
+				g = hue2rgb(p, q, h);
+				b = hue2rgb(p, q, h - 1 / 3);
+			}
+			return {"red":Math.round(r*255), "green":Math.round(g*255), "blue":Math.round(b*255) };
+		}
+		var dataRnbo = [];
+		function init() {
+			dataRnbo
+			var dates = Object.keys(dataRnbo).sort();
+			var dateOptionsHtml = [];
+			for(var i in dates) {
+				var date = dates[i];
+				dateOptionsHtml.push('<option value="'+i+'">'+date+'</option><br/>');
+				var oblKeys = Object.keys(dataRnbo[date]);
+				for(var i in oblKeys) {
+					var oblKey = oblKeys[i];
+					var dataEntry = dataRnbo[date][oblKey];
+					dataEntry.confirmedpersuspicion = dataEntry.suspicions>0? Math.round(dataEntry.confirmed*100 / dataEntry.suspicions) : 0;
+				}
+			}
+			dateOptionsHtml = dateOptionsHtml.join('');
+			document.getElementById('animateDate').innerHTML = dateOptionsHtml;
+			document.getElementById('chartDateStart').innerHTML = dateOptionsHtml;
+			var dateEndSelect = document.getElementById('chartDateEnd');
+			dateEndSelect.innerHTML = dateOptionsHtml;
+			dateEndSelect.selectedIndex = dateEndSelect.options.length - 1;
+			drawChart();
+		}
+		var chart;
+		function drawChart() {
+			var chartPropSelect = document.getElementById("chartPropSelect");
+			var property = chartPropSelect.options[chartPropSelect.selectedIndex].value;
+			var oblData = [];
+			var datasets = {}
+			var dates = Object.keys(dataRnbo).sort();
+			var labels = [];
+			var startDateIndex = document.getElementById('chartDateStart').selectedIndex;
+			var endDateIndex = document.getElementById('chartDateEnd').selectedIndex;
+			var avgBySevenDays = !!document.getElementById('avgBySevenDays').checked;
+			var perCapita = !!document.getElementById('perCapitaCheckbox').checked;
+			var avgDay = 1;
+			var avgIntervalStart;
+			var avgVals = {};
+			for(var idx = startDateIndex; idx <= endDateIndex; idx++) {
+				var date = dates[idx];
+				var oblKeys = Object.keys(dataRnbo[date]);
+				if(avgBySevenDays) {
+					if(avgDay < 7 && idx < endDateIndex) {
+						if(avgDay == 1) {
+							avgIntervalStart = date;
+						}
+						avgDay++;
+						for(var oblKeyIdx in oblKeys) {
+							var oblKey = oblKeys[oblKeyIdx];
+							if(!avgVals[oblKey]) {
+								avgVals[oblKey] = 0;
+							}
+							avgVals[oblKey] += dataRnbo[date][oblKey][property];
+						}
+					} else {
+						if(avgDay > 1) {
+							labels.push(avgIntervalStart);
+							for(var oblKeyIdx in oblKeys) {
+								var oblKey = oblKeys[oblKeyIdx];
+								if(!datasets[oblKey]) {
+									datasets[oblKey] = [];
+								}
+								var theValue = avgVals[oblKey] / (avgDay-1);
+								if(perCapita) {
+									theValue = Math.round(theValue*100000 / oblsPopulation[oblKey])/1000;
+								} else {
+									theValue = Math.round(theValue*1000)/1000;
+								}
+								datasets[oblKey].push(theValue);
+								avgVals[oblKey] = 0;
+							}
+							avgDay = 1;
+						}
+					}
+				} else {
+					labels.push(date);
+					for(var oblKeyIdx in oblKeys) {
+						var oblKey = oblKeys[oblKeyIdx];
+						if(!datasets[oblKey]) {
+							datasets[oblKey] = [];
+						}
+						var theValue = dataRnbo[date][oblKey][property];
+						if(perCapita) {
+							theValue = Math.round(theValue*100000 / oblsPopulation[oblKey])/1000;
+						}
+						datasets[oblKey].push(theValue);
+					}
+				}
+			}
+			var datasetKeys = Object.keys(datasets);
+			for(var i in datasetKeys) {
+				var oblKey = datasetKeys[i];
+				var color = hslToRgb(i*360/datasetKeys.length, i%2 == 0 ? 100 : 30, 40 + (i%7)*5);
+				oblData.push({
+					label: oblKey,
+					data:  datasets[oblKey],
+					fill: false,
+					pointRadius: 2,
+					borderColor: 'rgb('+color.red+','+color.green+','+color.blue+')',
+					backgroundColor: 'rgb('+color.red+','+color.green+','+color.blue+')'
+				});
+			}
+			// Sort legend by latest values - thanks to SerhiyInt for this addition:
+			oblData.sort(function(a, b) { return b.data[b.data.length - 1] - a.data[a.data.length - 1]; });
+			if(chart) {
+				chart.destroy();
+			}
+			var chartCanvas = document.getElementById('myChart');
+			chartCanvas.width = window.innerWidth;
+			var bezierCurvesTension = 0;
+			var chartTypeSelector = document.getElementById('chartTypeSelect');
+			var chartType = chartTypeSelector.options[chartTypeSelector.selectedIndex].value;
+			var chartScales = {
+				yAxes: [{
+					ticks: {
+		                stepSize: 50
+		            }
+				}],
+				xAxes: [{
+					ticks: {
+						maxRotation: 90,
+						minRotation: 90
+		            }
+				}]
+			};
+			if(chartType === 'lineSmoothed') {
+				chartType = 'line';
+				bezierCurvesTension = 0.4;
+			} else if(chartType === 'stackedBar') {
+				chartType = 'bar';
+				chartScales = {
+		            xAxes: [{
+		                stacked: true
+		            }],
+		            yAxes: [{
+		                stacked: true
+		            }]
+		        };
+			} else if(chartType === 'bar') {
+				chartScales = {};
+			}
+			chart = new Chart(chartCanvas, {
+				type: chartType,
+			    data: {
+			        labels: labels,
+			        datasets: oblData
+			    },
+				options: {
+					elements: {
+				        line: {
+				            tension: bezierCurvesTension
+				        }
+				    },
+					responsive: false,
+					legend: {
+						position: 'right'
+					},
+					scales: chartScales
+			    }
+			});
+		}
+		var propertyColor = {};
+		propertyColor['existing'] = 'red';
+		propertyColor['recovered'] = 'green';
+		propertyColor['deaths'] = 'black';
+		propertyColor['suspicions'] = 'yellow';
+		propertyColor['confirmed'] = 'red';
+		propertyColor['delta_existing'] = 'red';
+		propertyColor['delta_recovered'] = 'green';
+		propertyColor['delta_deaths'] = 'black';
+		propertyColor['delta_suspicions'] = 'yellow';
+		propertyColor['delta_confirmed'] = 'red';
+		var obls = {};
+		obls["Kyiv"] = "path3767";
+		obls["Cherkaska"] = "path3647";
+		obls["Chernihivska"] = "path3583";
+		obls["Chernivetska"] = "path3611";
+		obls["Dnipropetrovska"] = "path3669";
+		obls["Donetska"] = "path3573";
+		obls["Ivano-Frankivska"] = "path4410";
+		obls["Kharkivska"] = "path3571";
+		obls["Khersonska"] = "path4033";
+		obls["Khmelnytska"] = "path3609";
+		obls["Kirovohradska"] = "path4374";
+		obls["Kyivska"] = "path3643";
+		obls["Luhanska"] = "path3575";
+		obls["Lvivska"] = "path3605";
+		obls["Mykolaivska"] = "path3661";
+		obls["Odeska"] = "path3595";
+		obls["Poltavska"] = "path3651";
+		obls["Rivnenska"] = "path3603";
+		obls["Sumska"] = "path3581";
+		obls["Ternopilska"] = "path4404";
+		obls["Vinnytsia"] = "path3663";
+		obls["Volynska"] = "path3601";
+		obls["Zakarpatska"] = "path3607";
+		obls["Zaporizka"] = "path3673";
+		obls["Zhytomyrskа"] = "path3593";
+		obls["Krym"] = "path3681";
+		obls["Sevastopol"] = "path4412";
+		
+		// https://uk.wikipedia.org/wiki/Список_областей_України_за_чисельністю_населення
+		var oblsPopulation = {};
+		oblsPopulation["Kyiv"] = 2967360;
+		oblsPopulation["Sevastopol"] = 385998;
+		oblsPopulation["Cherkaska"] = 1192137;
+		oblsPopulation["Chernihivska"] = 991294;
+		oblsPopulation["Chernivetska"] = 901632;
+		oblsPopulation["Dnipropetrovska"] = 1192137;
+		oblsPopulation["Donetska"] = 4131808; // ?
+		oblsPopulation["Ivano-Frankivska"] = 1368097;
+		oblsPopulation["Kharkivska"] = 2658461;
+		oblsPopulation["Khersonska"] = 1027913;
+		oblsPopulation["Khmelnytska"] = 1254702;
+		oblsPopulation["Kirovohradska"] = 933109;
+		oblsPopulation["Kyivska"] = 1781044;
+		oblsPopulation["Luhanska"] = 2135913; // ?
+		oblsPopulation["Lvivska"] = 2512084;
+		oblsPopulation["Mykolaivska"] = 1119862;
+		oblsPopulation["Odeska"] = 2377230;
+		oblsPopulation["Poltavska"] = 1386978;
+		oblsPopulation["Rivnenska"] = 1152961;
+		oblsPopulation["Sumska"] = 1068247;
+		oblsPopulation["Ternopilska"] = 1038695;
+		oblsPopulation["Vinnytsia"] = 1545416;
+		oblsPopulation["Volynska"] = 1031421;
+		oblsPopulation["Zakarpatska"] = 1253791;
+		oblsPopulation["Zaporizka"] = 1687401;
+		oblsPopulation["Zhytomyrskа"] = 1208212;
+		oblsPopulation["Krym"] = 1968550;
+		var mySVG = document.getElementById("svg");
+		function setOblVal(oblKey, val255, color) {
+			val255 = Math.round(val255);
+			var invert = false;
+			if(val255<0) {
+				val255 = -val255;
+				invert = true;
+			}
+			if(invert) {
+				if(color == 'red') {
+					color = 'green';
+				} else if(color == 'green') {
+					color = 'red';
+				} else if(color == 'blue') {
+					color = 'yellow';
+				} else if(color == 'yellow') {
+					color = 'blue';
+				}
+			}
+			var r = 255 - val255;
+			var g = 255 - val255;
+			var b = 255 - val255;
+			if(color == 'red') {
+				r = 255;
+			} else if(color == 'green') {
+				g = 255;
+			} else if(color == 'blue') {
+				b = 255;
+			} else if(color == 'yellow') {
+				r = 255;
+				g = 255;
+			}
+			mySVG.contentDocument.getElementById(obls[oblKey]).style.fill = "rgb("+r+","+g+","+b+")";
+		}
+		function showData(date, data, prop, max, min, color) {
+			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
+			document.getElementById("oblCounts").innerHTML = '';
+			var oblKeys = Object.keys(obls);
+			for(var i in oblKeys) {
+				var obl = oblKeys[i];
+				var val = '?';
+				if(data[obl]) {
+					val = data[obl][prop];
+					if(perCapita) {
+						val = Math.round((val*100000)/oblsPopulation[obl])/1000;
+					}
+					setOblVal(obl, val >= 0 ? (val*255)/max : (val*255)/(-1-min), color);
+				}
+				document.getElementById("oblCounts").innerHTML += '<div>'+obl+': '+val+'</div>';
+			}
+		}
+		mySVG.addEventListener("load",function() {
+			mySVG.contentDocument.getElementById("text3930").remove();
+			mySVG.contentDocument.getElementById("text4377").remove();
+			mySVG.contentDocument.getElementById("path4369").remove();
+			mySVG.contentDocument.getElementById("path4367").remove();
+			var oblKeys = Object.keys(obls);
+			for(var i in oblKeys) {
+				setOblVal(oblKeys[i], 0);
+				var oblTitle = mySVG.contentDocument.createElementNS("http://www.w3.org/2000/svg","title");
+				oblTitle.innerHTML = oblKeys[i];
+				mySVG.contentDocument.getElementById(obls[oblKeys[i]]).appendChild(oblTitle);
+			}
+			fetch('./data_rnbo.json')
+				.then(response => response.json())
+				.then(data => {
+					dataRnbo = data;
+					init();
+				});
+		}, false);
+		function heatmapDataRnboForSingleDay() {
+			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
+			var dataFieldSelector = document.getElementById("dataFieldSelector");
+			var property = dataFieldSelector.options[dataFieldSelector.selectedIndex].value;
+			var color = propertyColor[property];
+			var dates = Object.keys(dataRnbo).sort();
+			var dateIdx = document.getElementById('animateDate').selectedIndex;
+			var maxVal = 0;
+			var minVal = 0;
+			for(var i in dates) {
+				var oblsData = dataRnbo[dates[i]];
+				var oblKeys = Object.keys(obls);
+				for(var oblKeysIdx in oblKeys) {
+					var obl = oblKeys[oblKeysIdx];
+					if(oblsData[obl]) {
+						var candidateVal = oblsData[obl][property];
+						if(perCapita) {
+							candidateVal = Math.round((candidateVal*100000)/oblsPopulation[obl])/1000;
+						}
+						if(candidateVal && candidateVal > maxVal) {
+							maxVal = candidateVal;
+						}
+						if(candidateVal && candidateVal < minVal) {
+							minVal = candidateVal;
+						}
+					}
+				}
+			}
+			document.getElementById("oblCountsMaxValue").innerHTML = '<small>(Max val: ' + maxVal+', Min val:' + minVal + ')</small>';
+			showData(dates[dateIdx], dataRnbo[dates[dateIdx]], property, maxVal, minVal, color);
+			return true;
+		}
+		function animateDateShift(offsetVal) {
+			var animateDateSelector = document.getElementById('animateDate');
+			var selIdx = animateDateSelector.selectedIndex;
+			selIdx += offsetVal;
+			if(selIdx >= 0 && selIdx < animateDateSelector.options.length) {
+				animateDateSelector.selectedIndex = selIdx;
+				heatmapDataRnboForSingleDay();
+			}
+		}
+		function animateDataRnbo() {
+			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
+			var dataFieldSelector = document.getElementById("dataFieldSelector");
+			var property = dataFieldSelector.options[dataFieldSelector.selectedIndex].value;
+			var color = propertyColor[property];
+			var dates = Object.keys(dataRnbo).sort();
+			var dateIdx = 0;
+			var maxVal = 0;
+			var minVal = 0;
+			for(var i in dates) {
+				var oblsData = dataRnbo[dates[i]];
+				var oblKeys = Object.keys(obls);
+				for(var oblKeyIdx in oblKeys) {
+					var obl = oblKeys[oblKeyIdx];
+					if(oblsData[obl]) {
+						var candidateVal = oblsData[obl][property];
+						if(perCapita) {
+							candidateVal = Math.round((candidateVal*100000)/oblsPopulation[obl])/1000;
+						}
+						if(candidateVal && candidateVal > maxVal) {
+							maxVal = candidateVal;
+						}
+						if(candidateVal && candidateVal < minVal) {
+							minVal = candidateVal;
+						}
+					}
+				}
+			}
+			document.getElementById("oblCountsMaxValue").innerHTML = '<small>(Max val: ' + maxVal+', Min val:' + minVal + ')</small>';
+			var animFunc = function() {
+				if(dates[dateIdx]) {
+					document.getElementById('animateDate').selectedIndex = dateIdx;
+					var date = dates[dateIdx];
+					var theValues = dataRnbo[date];
+					showData(date, theValues, property, maxVal, minVal, color);
+					setTimeout(animFunc, 100);
+				}
+				dateIdx++;
+			};
+			setTimeout(animFunc, 100);
+		}
+	</script>
+</body>
+</html>
