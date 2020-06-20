@@ -178,7 +178,7 @@
 								if(perCapita) {
 									theValue = Math.round(theValue*100000 / oblsPopulation[oblKey])/1000;
 								} else {
-									theValue = Math.round(theValue*1000)/1000;
+									theValue = Math.round(theValue*1000) / 1000;
 								}
 								datasets[oblKey].push(theValue);
 								avgVals[oblKey] = 0;
@@ -195,7 +195,7 @@
 						}
 						var theValue = dataRnbo[date][oblKey][property];
 						if(perCapita) {
-							theValue = Math.round(theValue*100000 / oblsPopulation[oblKey])/1000;
+							theValue = Math.round(theValue*100000 / oblsPopulation[oblKey]) / 1000;
 						}
 						datasets[oblKey].push(theValue);
 					}
@@ -284,6 +284,7 @@
 		propertyColor['delta_deaths'] = 'black';
 		propertyColor['delta_suspicions'] = 'yellow';
 		propertyColor['delta_confirmed'] = 'red';
+		
 		var obls = {};
 		obls["Kyiv"] = "path3767";
 		obls["Cherkaska"] = "path3647";
@@ -342,6 +343,7 @@
 		oblsPopulation["Zaporizka"] = 1687401;
 		oblsPopulation["Zhytomyrskа"] = 1208212;
 		oblsPopulation["Krym"] = 1968550;
+		
 		var mySVG = document.getElementById("svg");
 		function setOblVal(oblKey, val255, color) {
 			val255 = Math.round(val255);
@@ -376,6 +378,7 @@
 			}
 			mySVG.contentDocument.getElementById(obls[oblKey]).style.fill = "rgb("+r+","+g+","+b+")";
 		}
+		
 		function showData(date, data, prop, max, min, color) {
 			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
 			document.getElementById("oblCounts").innerHTML = '';
@@ -393,6 +396,7 @@
 				document.getElementById("oblCounts").innerHTML += '<div>'+obl+': '+val+'</div>';
 			}
 		}
+		
 		mySVG.addEventListener("load",function() {
 			mySVG.contentDocument.getElementById("text3930").remove();
 			mySVG.contentDocument.getElementById("text4377").remove();
@@ -412,6 +416,7 @@
 					init();
 				});
 		}, false);
+		
 		function heatmapDataRnboForSingleDay() {
 			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
 			var dataFieldSelector = document.getElementById("dataFieldSelector");
@@ -444,6 +449,7 @@
 			showData(dates[dateIdx], dataRnbo[dates[dateIdx]], property, maxVal, minVal, color);
 			return true;
 		}
+		
 		function animateDateShift(offsetVal) {
 			var animateDateSelector = document.getElementById('animateDate');
 			var selIdx = animateDateSelector.selectedIndex;
@@ -453,6 +459,7 @@
 				heatmapDataRnboForSingleDay();
 			}
 		}
+		
 		function animateDataRnbo() {
 			var perCapita = !!document.getElementById('perCapitaAnimationCheckbox').checked;
 			var dataFieldSelector = document.getElementById("dataFieldSelector");
