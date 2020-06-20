@@ -66,3 +66,5 @@ dataRnboJsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutpu
 }
 
 fetch(); processRnboData(); 0
+
+:exit
