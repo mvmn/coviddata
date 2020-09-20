@@ -2,6 +2,10 @@
 <head>
 	<script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.js'></script>
 	<style>
+		body {
+			background-color: white;
+			color: black;
+		}
 		#svg {
 			float: right;
 		}
@@ -22,6 +26,26 @@
 		#myChart {
 			width: 100% !important;
 			height: 780px !important;
+		}
+		.chartControls {
+			font-size: 80%;
+		}
+		.chartControlsGroup {
+			display: inline-block;
+			padding: 8px;
+			padding-left: 20px;
+			padding-right: 20px;
+			float: left;
+			min-height: 26px;			
+		}
+		.dateControls {
+			background-color: #C0C0FF;
+		}
+		.avgControls {
+			background-color: #FFC0C0;
+		}
+		.diagramTypeControls, .chartPropControls, .perCapitaControls {
+			background-color: #C0FFC0;
 		}
 	</style>
 </head>
@@ -54,35 +78,63 @@
 			<div id="oblCounts"></div>
 		</div>
 		<div id="chart">
-			<div>
-				<select id="chartPropSelect" onchange="javascript:drawChart()">
-					<option value="existing">Активні зараз</option>
-					<option value="recovered">Видужання</option>
-					<option value="deaths">Смерті</option>
-					<option value="suspicions">Підозри</option>
-					<option value="confirmed">Підтверджені за весь час</option>
-					<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
-					<option value="delta_existing">&Delta; Активні зараз</option>
-					<option value="delta_recovered">&Delta; Видужання</option>
-					<option value="delta_deaths">&Delta; Смерті</option>
-					<option value="delta_suspicions">&Delta; Підозри</option>
-					<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
-				</select>
-				<select id="chartDateStart" onchange="javascript:drawChart()">
-				</select>
-				<select id="chartDateEnd" onchange="javascript:drawChart()">
-				</select>
-				Тип діаграми
-				<select id="chartTypeSelect" onchange="javascript:drawChart()">
-					<option value="lineSmoothed">Лінійна із згладжуванням ліній</option>
-					<option value="line">Лінійна</option>
-					<option value="stackedBar">Стовпчикова збірна</option>
-					<option value="bar">Стовпчикова</option>
-				</select>
-				Середнє за 7 днів
-				<input id="avgBySevenDays" type="checkbox" onchange="javascript:drawChart()" />
-				Per capita
-				<input id="perCapitaCheckbox" type="checkbox" onchange="javascript:drawChart()" />
+			<div class="chartControls">
+				<div class="chartControlsGroup chartPropControls">
+					<select id="chartPropSelect" onchange="javascript:drawChart()">
+						<option value="existing">Активні зараз</option>
+						<option value="recovered">Видужання</option>
+						<option value="deaths">Смерті</option>
+						<option value="suspicions">Підозри</option>
+						<option value="confirmed">Підтверджені за весь час</option>
+						<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
+						<option value="delta_existing">&Delta; Активні зараз</option>
+						<option value="delta_recovered">&Delta; Видужання</option>
+						<option value="delta_deaths">&Delta; Смерті</option>
+						<option value="delta_suspicions">&Delta; Підозри</option>
+						<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
+					</select>
+				</div>
+				<div class="chartControlsGroup dateControls">
+					Від
+					<select id="chartDateStart" onchange="javascript:drawChart()">
+					</select>
+					до
+					<select id="chartDateEnd" onchange="javascript:drawChart()">
+					</select>
+				</div>
+				<div class="chartControlsGroup diagramTypeControls">
+					Тип діаграми
+					<select id="chartTypeSelect" onchange="javascript:drawChart()">
+						<option value="lineSmoothed">Лінійна із згладжуванням ліній</option>
+						<option value="line">Лінійна</option>
+						<option value="stackedBar">Стовпчикова збірна</option>
+						<option value="bar">Стовпчикова</option>
+					</select>
+				</div>
+				<div class="chartControlsGroup avgControls">
+					<input id="avgByNDays" type="checkbox" onchange="javascript:drawChart()" />
+					Середнє за 
+					<select id="avgDays" onchange="javascript:if(document.getElementById('avgByNDays').checked)drawChart()">
+						<option value="2">2</option>
+						<option value="3">3</option>
+						<option value="4">4</option>
+						<option value="5">5</option>
+						<option value="6">6</option>
+						<option value="7" selected="selected">7</option>
+						<option value="10">10</option>
+						<option value="14">14</option>
+						<option value="30">30</option>
+						<option value="60">60</option>
+						<option value="91">91</option>
+						<option value="182">182</option>
+						<option value="365">365</option>
+					</select>
+					дні(в)
+				</div>
+				<div class="chartControlsGroup perCapitaControls">
+					<input id="perCapitaCheckbox" type="checkbox" onchange="javascript:drawChart()" />
+					Per capita
+				</div>
 			</div>
 			<div><canvas id="myChart" width="800" height="780"></canvas></div>
 		</div>
@@ -145,16 +197,18 @@
 			var labels = [];
 			var startDateIndex = document.getElementById('chartDateStart').selectedIndex;
 			var endDateIndex = document.getElementById('chartDateEnd').selectedIndex;
-			var avgBySevenDays = !!document.getElementById('avgBySevenDays').checked;
+			var avgByNDays = !!document.getElementById('avgByNDays').checked;
 			var perCapita = !!document.getElementById('perCapitaCheckbox').checked;
 			var avgDay = 1;
 			var avgIntervalStart;
 			var avgVals = {};
+			var avgDaysCountSelector = document.getElementById("avgDays");
+			var avgDaysCount = avgDaysCountSelector.options[avgDaysCountSelector.selectedIndex].value;
 			for(var idx = startDateIndex; idx <= endDateIndex; idx++) {
 				var date = dates[idx];
 				var oblKeys = Object.keys(dataRnbo[date]);
-				if(avgBySevenDays) {
-					if(avgDay < 7 && idx < endDateIndex) {
+				if(avgByNDays) {
+					if(avgDay < avgDaysCount && idx < endDateIndex) {
 						if(avgDay == 1) {
 							avgIntervalStart = date;
 						}
