@@ -56,11 +56,11 @@
 			<select id="dataFieldSelector">
 				<option value="existing">Активні зараз</option>
 				<option value="recovered">Видужання</option>
-				<option value="deaths">Смерті</option>
+				<option value="deaths">Смерті за весь час</option>
 				<option value="suspicions">Підозри</option>
 				<option value="confirmed">Підтверджені за весь час</option>
 				<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
-				<option value="deathsperill">% смертей до підтверджених</option>
+				<option value="deathsperill">% смертей за весь час до підтверджених за весь час</option>
 				<option value="delta_existing">&Delta; Активні зараз</option>
 				<option value="delta_recovered">&Delta; Видужання</option>
 				<option value="delta_deaths">&Delta; Смерті</option>
@@ -84,11 +84,11 @@
 					<select id="chartPropSelect" onchange="javascript:drawChart()">
 						<option value="existing">Активні зараз</option>
 						<option value="recovered">Видужання</option>
-						<option value="deaths">Смерті</option>
+						<option value="deaths">Смерті за весь час</option>
 						<option value="suspicions">Підозри</option>
 						<option value="confirmed">Підтверджені за весь час</option>
 						<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
-						<option value="deathsperill">% смертей до підтверджених</option>
+						<option value="deathsperill">% смертей за весь час до підтверджених за весь час</option>
 						<option value="delta_existing">&Delta; Активні зараз</option>
 						<option value="delta_recovered">&Delta; Видужання</option>
 						<option value="delta_deaths">&Delta; Смерті</option>
@@ -178,7 +178,7 @@
 					var oblKey = oblKeys[i];
 					var dataEntry = dataRnbo[date][oblKey];
 					dataEntry.confirmedpersuspicion = dataEntry.suspicions>0? Math.round(dataEntry.confirmed*100 / dataEntry.suspicions) : 0;
-					dataEntry.deathsperill = dataEntry.deaths>0? Math.round(dataEntry.deaths*100000 / dataEntry.confirmed)/1000 : 0;
+					dataEntry.deathsperill = dataEntry.confirmed>0? Math.round(dataEntry.deaths*100000 / dataEntry.confirmed)/1000 : 0;
 				}
 			}
 			dateOptionsHtml = dateOptionsHtml.join('');
