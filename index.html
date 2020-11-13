@@ -60,12 +60,14 @@
 				<option value="suspicions">Підозри</option>
 				<option value="confirmed">Підтверджені за весь час</option>
 				<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
-				<option value="deathsperill">% смертей за весь час до підтверджених за весь час</option>
+				<option value="deathvsrecovered">% смертей за весь час до підтверджених за весь час</option>
+				<option value="deathsperill">% смерті за весь час/(смерті + видужання за весь час)</option>
 				<option value="delta_existing">&Delta; Активні зараз</option>
 				<option value="delta_recovered">&Delta; Видужання</option>
 				<option value="delta_deaths">&Delta; Смерті</option>
 				<option value="delta_suspicions">&Delta; Підозри</option>
 				<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
+				<option value="custom_formula">Власна формула</option>
 			</select>
 			<input type="button" onclick="javascript:animateDataRnbo()" value="Animate" />
 			<div>
@@ -88,12 +90,14 @@
 						<option value="suspicions">Підозри</option>
 						<option value="confirmed">Підтверджені за весь час</option>
 						<option value="confirmedpersuspicion">% Підтверджених до підозр</option>
-						<option value="deathsperill">% смертей за весь час до підтверджених за весь час</option>
+						<option value="deathvsrecovered">% смертей за весь час до підтверджених за весь час</option>
+						<option value="deathsperill">% смерті за весь час/(смерті + видужання за весь час)</option>
 						<option value="delta_existing">&Delta; Активні зараз</option>
 						<option value="delta_recovered">&Delta; Видужання</option>
 						<option value="delta_deaths">&Delta; Смерті</option>
 						<option value="delta_suspicions">&Delta; Підозри</option>
 						<option value="delta_confirmed">&Delta; Підтверджені за весь час</option>
+						<option value="custom_formula">Власна формула</option>
 					</select>
 				</div>
 				<div class="chartControlsGroup dateControls">
@@ -179,6 +183,7 @@
 					var dataEntry = dataRnbo[date][oblKey];
 					dataEntry.confirmedpersuspicion = dataEntry.suspicions>0? Math.round(dataEntry.confirmed*100 / dataEntry.suspicions) : 0;
 					dataEntry.deathsperill = dataEntry.confirmed>0? Math.round(dataEntry.deaths*100000 / dataEntry.confirmed)/1000 : 0;
+					dataEntry.deathvsrecovered = dataEntry.deaths>0? Math.round(dataEntry.deaths*100000 / (dataEntry.deaths+dataEntry.recovered))/1000 : 0;
 				}
 			}
 			dateOptionsHtml = dateOptionsHtml.join('');
@@ -206,6 +211,7 @@
 			var avgVals = {};
 			var avgDaysCountSelector = document.getElementById("avgDays");
 			var avgDaysCount = avgDaysCountSelector.options[avgDaysCountSelector.selectedIndex].value;
+			var maxValue = 0;
 			for(var idx = startDateIndex; idx <= endDateIndex; idx++) {
 				var date = dates[idx];
 				var oblKeys = Object.keys(dataRnbo[date]);
@@ -236,6 +242,9 @@
 								} else {
 									theValue = Math.round(theValue*1000) / 1000;
 								}
+								if(theValue > maxValue) {
+									maxValue = theValue;
+								}
 								datasets[oblKey].push(theValue);
 								avgVals[oblKey] = 0;
 							}
@@ -252,6 +261,9 @@
 						var theValue = dataRnbo[date][oblKey][property];
 						if(perCapita) {
 							theValue = Math.round(theValue*100000 / oblsPopulation[oblKey]) / 1000;
+						}
+						if(theValue > maxValue) {
+							maxValue = theValue;
 						}
 						datasets[oblKey].push(theValue);
 					}
@@ -280,10 +292,18 @@
 			var bezierCurvesTension = 0;
 			var chartTypeSelector = document.getElementById('chartTypeSelect');
 			var chartType = chartTypeSelector.options[chartTypeSelector.selectedIndex].value;
+			// var stepSize = maxValue/30;
+			// if(stepSize<0.001) {
+			// 	stepSize = 0.001;
+			// }
+			// if(stepSize>100) {
+			// 	stepSize = Math.round(stepSize/100)*100;
+			// }
+			var stepSize = perCapita? 0.01 : 100;
 			var chartScales = {
 				yAxes: [{
 					ticks: {
-		                stepSize: 50
+		                stepSize: stepSize
 		            }
 				}],
 				xAxes: [{
